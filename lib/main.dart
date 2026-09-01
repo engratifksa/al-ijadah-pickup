@@ -17,6 +17,9 @@ void main() async {
   // Initialize SQLite database factory across all platforms (Web, Windows, Android, iOS)
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWeb;
+    try {
+      BrowserContextMenu.disableContextMenu();
+    } catch (_) {}
   } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;

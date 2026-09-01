@@ -5,7 +5,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Al Ijadah International School - Smart Student Digital Pass & Dismissal Security">
 
   <!-- iOS PWA Meta Tags & Icons -->
@@ -27,6 +27,11 @@
   <link rel="manifest" href="manifest.json">
 
   <style>
+    * {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
     html, body {
       background-color: #0F3B82;
       margin: 0;
@@ -35,77 +40,15 @@
       height: 100%;
       overflow: hidden;
       touch-action: manipulation;
-      -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      -webkit-user-select: none;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     flt-glass-pane, flutter-view {
       touch-action: manipulation !important;
     }
-    #loading-indicator {
-      pointer-events: none !important;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      z-index: 99999;
-      transition: opacity 0.3s ease-out;
-    }
-    .spinner {
-      width: 44px;
-      height: 44px;
-      border: 4px solid rgba(255, 255, 255, 0.2);
-      border-top-color: #F5B800;
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-      margin-bottom: 16px;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    .loading-title {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-    }
-    .loading-subtitle {
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.7);
-      margin-top: 4px;
-    }
   </style>
 </head>
 <body>
-  <div id="loading-indicator">
-    <div class="spinner"></div>
-    <div class="loading-title">Al Ijadah Smart Pickup</div>
-    <div class="loading-subtitle">Launching School Portal...</div>
-  </div>
-
-  <script>
-    function removeLoading() {
-      var el = document.getElementById('loading-indicator');
-      if (el) {
-        el.style.opacity = '0';
-        setTimeout(function() {
-          if (el && el.parentNode) {
-            el.parentNode.removeChild(el);
-          }
-        }, 300);
-      }
-    }
-    window.addEventListener('flutter-first-frame', removeLoading);
-    // iOS Safari fallback: unconditionally removes loading overlay after 800ms
-    setTimeout(removeLoading, 800);
-  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
