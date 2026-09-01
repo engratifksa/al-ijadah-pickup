@@ -62,6 +62,14 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      splashFactory: InkRipple.splashFactory,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          tapTargetSize: MaterialTapTargetSize.padded,
+        ),
+      ),
       scaffoldBackgroundColor: backgroundOffWhite,
       primaryColor: primaryRoyalBlue,
       colorScheme: const ColorScheme.light(

@@ -42,13 +42,19 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      cursor: pointer;
     }
-    flt-glass-pane, flutter-view {
+    flt-glass-pane, flutter-view, canvas {
       touch-action: manipulation !important;
+      cursor: pointer !important;
     }
   </style>
 </head>
-<body>
+<body onclick="void(0);">
+  <script>
+    // iOS Safari WebKit touch-readiness anchor
+    document.addEventListener('touchstart', function() {}, { passive: true });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
