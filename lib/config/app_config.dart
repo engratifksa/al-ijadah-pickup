@@ -84,7 +84,8 @@ class AppConfig {
   static int webBridgePort = 8085;
 
   // Remote HTTPS Email Gateway URL for Web/PWA (Method 1)
-  static String webHttpGatewayUrl = '';
+  static String webHttpGatewayUrl =
+      'https://script.google.com/macros/s/AKfycby8XbMVaeFLdVgTyXmSMOH1tFb0UVdIP_cbP_hBo_ElODGR-Qq9TPDa92HnYCoNYcNj/exec';
 
   /// Loads saved configuration from SharedPreferences so credentials survive reloads
   static Future<void> loadFromPreferences() async {
@@ -151,7 +152,13 @@ class AppConfig {
         enableMockSmtpWhenOfflineOrEmpty = false;
       }
 
-      webHttpGatewayUrl = prefs.getString('web_http_gateway_url') ?? '';
+      final savedGateway = prefs.getString('web_http_gateway_url');
+      if (savedGateway != null && savedGateway.isNotEmpty) {
+        webHttpGatewayUrl = savedGateway;
+      } else {
+        webHttpGatewayUrl =
+            'https://script.google.com/macros/s/AKfycby8XbMVaeFLdVgTyXmSMOH1tFb0UVdIP_cbP_hBo_ElODGR-Qq9TPDa92HnYCoNYcNj/exec';
+      }
 
       debugPrint('[AppConfig] Configuration loaded. Guard PIN: $guardPin, Settings PIN: $settingsPin, Guard Session: $isGuardSessionActive, Phone: $schoolPhone');
     } catch (e) {

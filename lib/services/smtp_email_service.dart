@@ -171,11 +171,11 @@ class SmtpEmailService {
     // 1. Try remote HTTPS email gateway if configured
     if (AppConfig.webHttpGatewayUrl.isNotEmpty) {
       try {
+        // Use text/plain to bypass browser CORS preflight OPTIONS request for Google Apps Script
         final resp = await http.post(
           Uri.parse(AppConfig.webHttpGatewayUrl),
           headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            'Content-Type': 'text/plain;charset=utf-8',
           },
           body: jsonEncode({
             'recipient': recipient,
@@ -185,9 +185,17 @@ class SmtpEmailService {
             'pass': AppConfig.cleanSmtpPassword,
             'senderName': AppConfig.smtpSenderName,
           }),
-        ).timeout(const Duration(seconds: 10));
+        ).timeout(const Duration(seconds: 15));
 
-        if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        debugPrint('[SmtpEmailService] Web gateway response status: ${resp.statusCode}, body: ${resp.body}');
+        if (resp.statusCode >= 200 && resp.statusCode < 400) {
+          try {
+            final jsonRes = jsonDecode(resp.body);
+            if (jsonRes is Map && jsonRes['success'] == false) {
+              debugPrint('[SmtpEmailService] Gateway reported failure: ${jsonRes['error']}');
+              return false;
+            }
+          } catch (_) {}
           debugPrint('[SmtpEmailService] Web HTTP gateway delivered to $recipient');
           return true;
         }
