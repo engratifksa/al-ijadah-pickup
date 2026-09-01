@@ -561,29 +561,15 @@ class SmtpEmailService {
           AppConfig.cleanSmtpPassword != 'abcdefghijklmnop';
 
       if (kIsWeb) {
-        try {
-          final resp = await http.post(
-            Uri.parse('http://127.0.0.1:${AppConfig.webBridgePort}/send-email'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'user': AppConfig.smtpGmailUser,
-              'pass': AppConfig.cleanSmtpPassword,
-              'recipient': adminEmail,
-              'subject': 'Security Recovery: Admin Settings Passcode - Al Ijadah School',
-              'html': htmlContent,
-              'senderName': AppConfig.smtpSenderName,
-            }),
-          ).timeout(const Duration(seconds: 12));
-
-          final result = jsonDecode(resp.body) as Map<String, dynamic>;
-          if (result['success'] == true) {
-            debugPrint('[SmtpEmailService] Passcode recovery email sent via web bridge to $adminEmail');
-            return true;
-          }
-        } catch (e) {
-          debugPrint('[SmtpEmailService] Web bridge recovery send error: $e');
+        final success = await _dispatchWebHttpEmail(
+          recipient: adminEmail,
+          subject: 'Security Recovery: Admin Settings Passcode - Al Ijadah School',
+          htmlContent: htmlContent,
+        );
+        if (success) {
+          debugPrint('[SmtpEmailService] Passcode recovery email sent via Web HTTP gateway to $adminEmail');
+          return true;
         }
-
         if (!isConfigured && AppConfig.enableMockSmtpWhenOfflineOrEmpty) {
           debugPrint('[SmtpEmailService] Mock Passcode recovery email dispatched to $adminEmail (Passcode: $passcode).');
           return true;
