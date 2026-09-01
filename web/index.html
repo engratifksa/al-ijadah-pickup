@@ -27,20 +27,37 @@
   <link rel="manifest" href="manifest.json">
 
   <style>
-    body {
+    html, body {
       background-color: #0F3B82;
       margin: 0;
       padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
+    flt-glass-pane, flutter-view {
+      touch-action: manipulation !important;
+    }
     #loading-indicator {
+      pointer-events: none !important;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
       color: white;
+      z-index: 99999;
+      transition: opacity 0.3s ease-out;
     }
     .spinner {
       width: 44px;
@@ -74,10 +91,20 @@
   </div>
 
   <script>
-    window.addEventListener('flutter-first-frame', function () {
+    function removeLoading() {
       var el = document.getElementById('loading-indicator');
-      if (el) el.remove();
-    });
+      if (el) {
+        el.style.opacity = '0';
+        setTimeout(function() {
+          if (el && el.parentNode) {
+            el.parentNode.removeChild(el);
+          }
+        }, 300);
+      }
+    }
+    window.addEventListener('flutter-first-frame', removeLoading);
+    // iOS Safari fallback: unconditionally removes loading overlay after 800ms
+    setTimeout(removeLoading, 800);
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
