@@ -1,11 +1,11 @@
 {
-    "name": "al_ijadah_pickup",
-    "short_name": "al_ijadah_pickup",
+    "name": "Al Ijadah Smart Pickup",
+    "short_name": "Al Ijadah",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F8FAFC",
+    "theme_color": "#0F3B82",
+    "description": "Al Ijadah International School - Smart Student Digital Pass & Dismissal Security",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

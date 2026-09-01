@@ -157,6 +157,78 @@ class SmtpEmailService {
     }
   }
 
+  /// Web HTTP Dispatcher (Method 1)
+  /// Dispatches email over HTTPS REST without requiring raw TCP sockets.
+  Future<bool> _dispatchWebHttpEmail({
+    required String recipient,
+    required String subject,
+    required String htmlContent,
+  }) async {
+    final isConfigured = AppConfig.smtpGmailUser.contains('@') &&
+        AppConfig.cleanSmtpPassword.length == 16 &&
+        AppConfig.cleanSmtpPassword != 'abcdefghijklmnop';
+
+    // 1. Try remote HTTPS email gateway if configured
+    if (AppConfig.webHttpGatewayUrl.isNotEmpty) {
+      try {
+        final resp = await http.post(
+          Uri.parse(AppConfig.webHttpGatewayUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({
+            'recipient': recipient,
+            'subject': subject,
+            'html': htmlContent,
+            'user': AppConfig.smtpGmailUser,
+            'pass': AppConfig.cleanSmtpPassword,
+            'senderName': AppConfig.smtpSenderName,
+          }),
+        ).timeout(const Duration(seconds: 10));
+
+        if (resp.statusCode >= 200 && resp.statusCode < 300) {
+          debugPrint('[SmtpEmailService] Web HTTP gateway delivered to $recipient');
+          return true;
+        }
+      } catch (e) {
+        debugPrint('[SmtpEmailService] Web HTTP gateway error: $e');
+      }
+    }
+
+    // 2. Try local development bridge (http://127.0.0.1:8085) for PC testing
+    try {
+      final resp = await http.post(
+        Uri.parse('http://127.0.0.1:${AppConfig.webBridgePort}/send-email'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user': AppConfig.smtpGmailUser,
+          'pass': AppConfig.cleanSmtpPassword,
+          'recipient': recipient,
+          'subject': subject,
+          'html': htmlContent,
+          'senderName': AppConfig.smtpSenderName,
+        }),
+      ).timeout(const Duration(seconds: 4));
+
+      final result = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (result['success'] == true) {
+        debugPrint('[SmtpEmailService] Web local bridge delivered to $recipient');
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[SmtpEmailService] Web local bridge note: $e');
+    }
+
+    // 3. Fallback: if mock enabled or offline simulation
+    if (!isConfigured && AppConfig.enableMockSmtpWhenOfflineOrEmpty) {
+      debugPrint('[SmtpEmailService] Web simulated email for $recipient.');
+      return true;
+    }
+
+    return false;
+  }
+
   /// Internal direct SMTP dispatch using mailer package or web bridge
   Future<void> _executeSmtpSend({
     required String recipientEmail,
@@ -177,35 +249,14 @@ class SmtpEmailService {
         AppConfig.cleanSmtpPassword != 'abcdefghijklmnop';
 
     if (kIsWeb) {
-      try {
-        final resp = await http.post(
-          Uri.parse('http://127.0.0.1:${AppConfig.webBridgePort}/send-email'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'user': AppConfig.smtpGmailUser,
-            'pass': AppConfig.cleanSmtpPassword,
-            'recipient': recipientEmail,
-            'subject': 'Safety Alert: Pickup Confirmation - Al Ijadah International School',
-            'html': htmlContent,
-            'senderName': AppConfig.smtpSenderName,
-          }),
-        ).timeout(const Duration(seconds: 10));
-
-        final result = jsonDecode(resp.body) as Map<String, dynamic>;
-        if (result['success'] == true) {
-          debugPrint('[SmtpEmailService] Web bridge delivered email to $recipientEmail');
-          return;
-        } else {
-          throw Exception(result['error'] ?? 'Bridge dispatch error');
-        }
-      } catch (e) {
-        debugPrint('[SmtpEmailService] Web bridge attempt note: $e');
-        if (!isConfigured && AppConfig.enableMockSmtpWhenOfflineOrEmpty) {
-          await Future.delayed(const Duration(milliseconds: 600));
-          return;
-        }
-        rethrow;
-      }
+      final success = await _dispatchWebHttpEmail(
+        recipient: recipientEmail,
+        subject: 'Safety Alert: Pickup Confirmation - Al Ijadah International School',
+        htmlContent: htmlContent,
+      );
+      if (success) return;
+      if (!isConfigured && AppConfig.enableMockSmtpWhenOfflineOrEmpty) return;
+      throw Exception('Web email gateway unreachable. Please ensure internet connection.');
     }
 
     if (!isConfigured && AppConfig.enableMockSmtpWhenOfflineOrEmpty) {
@@ -387,29 +438,15 @@ class SmtpEmailService {
           AppConfig.cleanSmtpPassword != 'abcdefghijklmnop';
 
       if (kIsWeb) {
-        try {
-          final resp = await http.post(
-            Uri.parse('http://127.0.0.1:${AppConfig.webBridgePort}/send-email'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'user': AppConfig.smtpGmailUser,
-              'pass': AppConfig.cleanSmtpPassword,
-              'recipient': AppConfig.adminEmail,
-              'subject': 'New Student Pass Registration: $studentName ($grade) - Action Required',
-              'html': htmlContent,
-              'senderName': AppConfig.smtpSenderName,
-            }),
-          ).timeout(const Duration(seconds: 10));
-
-          final result = jsonDecode(resp.body) as Map<String, dynamic>;
-          if (result['success'] == true) {
-            debugPrint('[SmtpEmailService] Admin registration email sent via web bridge to ${AppConfig.adminEmail}');
-            return true;
-          }
-        } catch (e) {
-          debugPrint('[SmtpEmailService] Web bridge admin send error: $e');
+        final success = await _dispatchWebHttpEmail(
+          recipient: AppConfig.adminEmail,
+          subject: 'New Student Pass Registration: $studentName ($grade) - Action Required',
+          htmlContent: htmlContent,
+        );
+        if (success) {
+          debugPrint('[SmtpEmailService] Admin registration alert sent via Web HTTP gateway to ${AppConfig.adminEmail}');
+          return true;
         }
-
         if (!isConfigured && AppConfig.enableMockSmtpWhenOfflineOrEmpty) {
           debugPrint('[SmtpEmailService] Mock Admin registration alert sent for $studentName.');
           return true;
@@ -462,29 +499,15 @@ class SmtpEmailService {
           AppConfig.cleanSmtpPassword != 'abcdefghijklmnop';
 
       if (kIsWeb) {
-        try {
-          final resp = await http.post(
-            Uri.parse('http://127.0.0.1:${AppConfig.webBridgePort}/send-email'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'user': AppConfig.smtpGmailUser,
-              'pass': AppConfig.cleanSmtpPassword,
-              'recipient': parentEmail,
-              'subject': 'Approved: Al Ijadah Pickup Pass Unlock Code for $studentName',
-              'html': htmlContent,
-              'senderName': AppConfig.smtpSenderName,
-            }),
-          ).timeout(const Duration(seconds: 10));
-
-          final result = jsonDecode(resp.body) as Map<String, dynamic>;
-          if (result['success'] == true) {
-            debugPrint('[SmtpEmailService] Parent approval email sent via web bridge to $parentEmail');
-            return true;
-          }
-        } catch (e) {
-          debugPrint('[SmtpEmailService] Web bridge parent send error: $e');
+        final success = await _dispatchWebHttpEmail(
+          recipient: parentEmail,
+          subject: 'Approved: Al Ijadah Pickup Pass Unlock Code for $studentName',
+          htmlContent: htmlContent,
+        );
+        if (success) {
+          debugPrint('[SmtpEmailService] Parent approval email sent via Web HTTP gateway to $parentEmail');
+          return true;
         }
-
         if (!isConfigured && AppConfig.enableMockSmtpWhenOfflineOrEmpty) {
           debugPrint('[SmtpEmailService] Mock approval code email dispatched to $parentEmail.');
           return true;
@@ -604,31 +627,17 @@ class SmtpEmailService {
           AppConfig.cleanSmtpPassword != 'abcdefghijklmnop';
 
       if (kIsWeb) {
-        try {
-          final resp = await http.post(
-            Uri.parse('http://127.0.0.1:${AppConfig.webBridgePort}/send-email'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'user': AppConfig.smtpGmailUser,
-              'pass': AppConfig.cleanSmtpPassword,
-              'recipient': recipientEmail,
-              'subject': subject,
-              'html': htmlBody,
-              'senderName': AppConfig.smtpSenderName,
-            }),
-          ).timeout(const Duration(seconds: 10));
-
-          final result = jsonDecode(resp.body) as Map<String, dynamic>;
-          if (result['success'] == true) {
-            return EmailDispatchResult(
-              status: EmailDispatchStatus.sentDirectly,
-              message: 'Email dispatched successfully via web bridge.',
-            );
-          }
-        } catch (e) {
-          debugPrint('[SmtpEmailService] Web bridge custom email error: $e');
+        final success = await _dispatchWebHttpEmail(
+          recipient: recipientEmail,
+          subject: subject,
+          htmlContent: htmlBody,
+        );
+        if (success) {
+          return EmailDispatchResult(
+            status: EmailDispatchStatus.sentDirectly,
+            message: 'Email dispatched successfully via Web HTTP gateway.',
+          );
         }
-
         if (!isConfigured && AppConfig.enableMockSmtpWhenOfflineOrEmpty) {
           return EmailDispatchResult(
             status: EmailDispatchStatus.sentDirectly,

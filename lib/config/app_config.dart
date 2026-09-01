@@ -83,6 +83,9 @@ class AppConfig {
   // Local HTTP bridge port for Flutter Web email relay
   static int webBridgePort = 8085;
 
+  // Remote HTTPS Email Gateway URL for Web/PWA (Method 1)
+  static String webHttpGatewayUrl = '';
+
   /// Loads saved configuration from SharedPreferences so credentials survive reloads
   static Future<void> loadFromPreferences() async {
     try {
@@ -148,6 +151,8 @@ class AppConfig {
         enableMockSmtpWhenOfflineOrEmpty = false;
       }
 
+      webHttpGatewayUrl = prefs.getString('web_http_gateway_url') ?? '';
+
       debugPrint('[AppConfig] Configuration loaded. Guard PIN: $guardPin, Settings PIN: $settingsPin, Guard Session: $isGuardSessionActive, Phone: $schoolPhone');
     } catch (e) {
       debugPrint('[AppConfig] Error loading preferences: $e');
@@ -168,6 +173,7 @@ class AppConfig {
       await prefs.setString('settings_pin', settingsPin);
       await prefs.setBool('guard_session_active', isGuardSessionActive);
       await prefs.setBool('mock_smtp', enableMockSmtpWhenOfflineOrEmpty);
+      await prefs.setString('web_http_gateway_url', webHttpGatewayUrl);
       debugPrint('[AppConfig] Saved configuration to SharedPreferences.');
     } catch (e) {
       debugPrint('[AppConfig] Error saving preferences: $e');
