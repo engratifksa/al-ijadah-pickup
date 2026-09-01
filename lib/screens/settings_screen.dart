@@ -24,6 +24,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _schoolPhoneController;
   late TextEditingController _smtpHostController;
   late TextEditingController _smtpPortController;
+  late TextEditingController _webGatewayController;
   late TextEditingController _guardPinController;
   late TextEditingController _settingsPinController;
   late TextEditingController _testEmailController;
@@ -39,6 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _schoolPhoneController = TextEditingController(text: AppConfig.schoolPhone);
     _smtpHostController = TextEditingController(text: AppConfig.smtpHost);
     _smtpPortController = TextEditingController(text: AppConfig.smtpPortSsl.toString());
+    _webGatewayController = TextEditingController(text: AppConfig.webHttpGatewayUrl);
     _guardPinController = TextEditingController(text: AppConfig.guardPin);
     _settingsPinController = TextEditingController(text: AppConfig.settingsPin);
     _testEmailController = TextEditingController(text: AppConfig.smtpGmailUser);
@@ -52,6 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _schoolPhoneController.dispose();
     _smtpHostController.dispose();
     _smtpPortController.dispose();
+    _webGatewayController.dispose();
     _guardPinController.dispose();
     _settingsPinController.dispose();
     _testEmailController.dispose();
@@ -66,6 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     AppConfig.schoolPhone = _schoolPhoneController.text.trim();
     AppConfig.smtpHost = _smtpHostController.text.trim();
     AppConfig.smtpPortSsl = int.tryParse(_smtpPortController.text.trim()) ?? 465;
+    AppConfig.webHttpGatewayUrl = _webGatewayController.text.trim();
     AppConfig.enableMockSmtpWhenOfflineOrEmpty = _mockSmtp;
     if (_guardPinController.text.trim().isNotEmpty) {
       AppConfig.guardPin = _guardPinController.text.trim();
@@ -255,6 +259,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ],
+            ),
+
+            const SizedBox(height: 14),
+
+            TextFormField(
+              controller: _webGatewayController,
+              decoration: const InputDecoration(
+                labelText: 'Web / PWA Email Gateway URL (For iPhone/Web)',
+                hintText: 'https://script.google.com/macros/s/.../exec',
+                prefixIcon: Icon(Icons.cloud_sync_rounded),
+                helperText: 'For iPhone/Web PWA: Google Apps Script Web App URL or REST webhook',
+              ),
             ),
 
             const SizedBox(height: 18),

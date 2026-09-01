@@ -304,37 +304,31 @@ class SmtpEmailService {
     ''';
 
     if (kIsWeb) {
-      try {
-        final resp = await http.post(
-          Uri.parse('http://127.0.0.1:${AppConfig.webBridgePort}/send-email'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'user': AppConfig.smtpGmailUser,
-            'pass': AppConfig.cleanSmtpPassword,
-            'recipient': recipientEmail,
-            'subject': 'Al Ijadah Pickup Pass - Live SMTP Verification',
-            'html': htmlContent,
-            'senderName': AppConfig.smtpSenderName,
-          }),
-        ).timeout(const Duration(seconds: 15));
+      final success = await _dispatchWebHttpEmail(
+        recipient: recipientEmail,
+        subject: 'Al Ijadah Pickup Pass - Live SMTP Verification',
+        htmlContent: htmlContent,
+      );
 
-        final result = jsonDecode(resp.body) as Map<String, dynamic>;
-        if (result['success'] == true) {
+      if (success) {
+        return EmailDispatchResult(
+          status: EmailDispatchStatus.sentDirectly,
+          message: 'Success! Live test email dispatched from ${AppConfig.smtpGmailUser} to $recipientEmail! Check your inbox.',
+        );
+      } else {
+        if (AppConfig.webHttpGatewayUrl.isEmpty) {
           return EmailDispatchResult(
-            status: EmailDispatchStatus.sentDirectly,
-            message: 'Success! Live test email dispatched from ${AppConfig.smtpGmailUser} to $recipientEmail! Check your inbox.',
+            status: EmailDispatchStatus.failed,
+            message: 'Web / PWA Email Gateway not configured yet.\n\n'
+                'Web browsers (iOS Safari & Chrome) cannot open direct raw SMTP sockets to port 465.\n\n'
+                'Please configure your Web Email Gateway URL in Settings, or test using the native Android APK.',
           );
         } else {
           return EmailDispatchResult(
             status: EmailDispatchStatus.failed,
-            message: 'Google SMTP Error: ${result['error']}\n\nPlease check:\n1. 2-Step Verification is active on Google.\n2. You used a 16-character Google App Password (not normal login password).\n3. Sender address is correct.',
+            message: 'Failed to reach Web Email Gateway: ${AppConfig.webHttpGatewayUrl}.\n\nPlease check your gateway URL.',
           );
         }
-      } catch (e) {
-        return EmailDispatchResult(
-          status: EmailDispatchStatus.failed,
-          message: 'Error communicating with local SMTP service: $e\n\nEnsure local SMTP bridge is running, or test natively on Windows/Android.',
-        );
       }
     }
 
