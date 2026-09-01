@@ -10,7 +10,7 @@
 
   <!-- iOS PWA Meta Tags & Icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Al Ijadah">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png">
@@ -54,6 +54,15 @@
   <script>
     // iOS Safari WebKit touch-readiness anchor
     document.addEventListener('touchstart', function() {}, { passive: true });
+
+    // Auto-update ServiceWorker in iOS standalone WebApp to prevent stale cache
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var i = 0; i < registrations.length; i++) {
+          registrations[i].update();
+        }
+      });
+    }
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>

@@ -1,7 +1,8 @@
 {
     "name": "Al Ijadah Smart Pickup",
     "short_name": "Al Ijadah",
-    "start_url": ".",
+    "start_url": "/al-ijadah-pickup/",
+    "scope": "/al-ijadah-pickup/",
     "display": "standalone",
     "background_color": "#F8FAFC",
     "theme_color": "#0F3B82",
