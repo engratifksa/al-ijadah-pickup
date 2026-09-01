@@ -40,6 +40,7 @@ void main() async {
     await AppConfig.loadFromPreferences();
     await EncryptionService().init();
     await SmtpEmailService().init();
+    await DatabaseHelper().init();
     if (!kIsWeb) {
       await DatabaseHelper().database;
     }

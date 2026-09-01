@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -19,7 +20,11 @@ class DatabaseHelper {
   static const String _dbName = 'al_ijadah_pickup.db';
   static const int _dbVersion = 1;
 
-  // In-memory fallback repository for Web browsers (Chrome/Edge) to guarantee instant zero-latency loading
+  // Persistent storage keys for Web PWA & browser local storage
+  static const String _prefStudentsKey = 'pwa_persisted_students_v1';
+  static const String _prefEmailQueueKey = 'pwa_persisted_email_queue_v1';
+
+  // In-memory cached repository across Web browsers and mobile
   static final List<StudentModel> _inMemoryStudents = [];
   static final List<EmailQueueItem> _inMemoryEmailQueue = [];
   static bool _isInMemorySeeded = false;
@@ -133,10 +138,72 @@ class DatabaseHelper {
     // Schema upgrades if any in future versions
   }
 
+  Future<void> init() async {
+    await _loadFromPreferences();
+  }
+
+  Future<void> _loadFromPreferences() async {
+    if (_isInMemorySeeded) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final studentsJson = prefs.getString(_prefStudentsKey);
+      if (studentsJson != null && studentsJson.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(studentsJson) as List<dynamic>;
+        _inMemoryStudents.clear();
+        for (final item in decoded) {
+          if (item is Map<String, dynamic>) {
+            _inMemoryStudents.add(StudentModel.fromSqliteMap(item));
+          }
+        }
+        debugPrint('[DatabaseHelper] Loaded ${_inMemoryStudents.length} student(s) from persistent storage.');
+      }
+
+      final emailQueueJson = prefs.getString(_prefEmailQueueKey);
+      if (emailQueueJson != null && emailQueueJson.isNotEmpty) {
+        final List<dynamic> decodedQueue = jsonDecode(emailQueueJson) as List<dynamic>;
+        _inMemoryEmailQueue.clear();
+        for (final item in decodedQueue) {
+          if (item is Map<String, dynamic>) {
+            _inMemoryEmailQueue.add(EmailQueueItem.fromSqliteMap(item));
+          }
+        }
+        if (_inMemoryEmailQueue.isNotEmpty) {
+          _nextEmailQueueId = _inMemoryEmailQueue.map((e) => e.id ?? 0).fold(0, (max, v) => v > max ? v : max) + 1;
+        }
+        debugPrint('[DatabaseHelper] Loaded ${_inMemoryEmailQueue.length} email queue item(s) from persistent storage.');
+      }
+    } catch (e) {
+      debugPrint('[DatabaseHelper] Error loading persisted data: $e');
+    } finally {
+      _isInMemorySeeded = true;
+    }
+  }
+
+  Future<void> _saveStudentsToPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = _inMemoryStudents.map((s) => s.toSqliteMap()).toList();
+      await prefs.setString(_prefStudentsKey, jsonEncode(list));
+      debugPrint('[DatabaseHelper] Persisted ${_inMemoryStudents.length} student(s) to local storage.');
+    } catch (e) {
+      debugPrint('[DatabaseHelper] Error persisting students: $e');
+    }
+  }
+
+  Future<void> _saveEmailQueueToPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = _inMemoryEmailQueue.map((e) => e.toSqliteMap()).toList();
+      await prefs.setString(_prefEmailQueueKey, jsonEncode(list));
+    } catch (e) {
+      debugPrint('[DatabaseHelper] Error persisting email queue: $e');
+    }
+  }
+
   void _ensureInMemorySeeded() {
     if (_isInMemorySeeded) return;
-    _inMemoryStudents.clear();
     _isInMemorySeeded = true;
+    _loadFromPreferences();
   }
 
   // ===================== STUDENTS CRUD =====================
@@ -145,6 +212,7 @@ class DatabaseHelper {
     _ensureInMemorySeeded();
     _inMemoryStudents.removeWhere((s) => s.id == student.id);
     _inMemoryStudents.insert(0, student);
+    await _saveStudentsToPreferences();
 
     if (!kIsWeb) {
       try {
@@ -169,6 +237,7 @@ class DatabaseHelper {
     } else {
       _inMemoryStudents.add(student);
     }
+    await _saveStudentsToPreferences();
 
     if (!kIsWeb) {
       try {
@@ -187,7 +256,9 @@ class DatabaseHelper {
   }
 
   Future<StudentModel?> getStudentById(String id) async {
-    _ensureInMemorySeeded();
+    if (!_isInMemorySeeded) {
+      await _loadFromPreferences();
+    }
     final found = _inMemoryStudents.where((s) => s.id == id).toList();
     if (found.isNotEmpty) return found.first;
 
@@ -211,7 +282,9 @@ class DatabaseHelper {
   }
 
   Future<List<StudentModel>> getAllStudents() async {
-    _ensureInMemorySeeded();
+    if (!_isInMemorySeeded) {
+      await _loadFromPreferences();
+    }
     if (kIsWeb) {
       return List<StudentModel>.from(_inMemoryStudents);
     }
@@ -238,6 +311,7 @@ class DatabaseHelper {
         updatedAt: DateTime.now().millisecondsSinceEpoch,
       );
     }
+    await _saveStudentsToPreferences();
 
     if (!kIsWeb) {
       try {
@@ -261,6 +335,7 @@ class DatabaseHelper {
   Future<int> deleteStudent(String id) async {
     _ensureInMemorySeeded();
     _inMemoryStudents.removeWhere((s) => s.id == id);
+    await _saveStudentsToPreferences();
 
     if (!kIsWeb) {
       try {
@@ -284,6 +359,7 @@ class DatabaseHelper {
     final assignedId = item.id ?? _nextEmailQueueId++;
     final assignedItem = item.copyWith(id: assignedId);
     _inMemoryEmailQueue.add(assignedItem);
+    await _saveEmailQueueToPreferences();
 
     if (!kIsWeb) {
       try {
@@ -297,7 +373,9 @@ class DatabaseHelper {
   }
 
   Future<List<EmailQueueItem>> getPendingEmails() async {
-    _ensureInMemorySeeded();
+    if (!_isInMemorySeeded) {
+      await _loadFromPreferences();
+    }
     if (kIsWeb) {
       return _inMemoryEmailQueue.where((i) => !i.sent).toList();
     }
@@ -318,7 +396,9 @@ class DatabaseHelper {
   }
 
   Future<List<EmailQueueItem>> getAllQueueItems() async {
-    _ensureInMemorySeeded();
+    if (!_isInMemorySeeded) {
+      await _loadFromPreferences();
+    }
     if (kIsWeb) {
       return List<EmailQueueItem>.from(_inMemoryEmailQueue.reversed);
     }
@@ -343,6 +423,7 @@ class DatabaseHelper {
     if (index >= 0) {
       _inMemoryEmailQueue[index] = _inMemoryEmailQueue[index].copyWith(isSent: 1);
     }
+    await _saveEmailQueueToPreferences();
 
     if (!kIsWeb) {
       try {
@@ -361,7 +442,9 @@ class DatabaseHelper {
   }
 
   Future<int> getPendingQueueCount() async {
-    _ensureInMemorySeeded();
+    if (!_isInMemorySeeded) {
+      await _loadFromPreferences();
+    }
     if (kIsWeb) {
       return _inMemoryEmailQueue.where((i) => !i.sent).length;
     }
@@ -381,6 +464,8 @@ class DatabaseHelper {
     _isInMemorySeeded = true;
     _inMemoryStudents.clear();
     _inMemoryEmailQueue.clear();
+    await _saveStudentsToPreferences();
+    await _saveEmailQueueToPreferences();
 
     if (!kIsWeb) {
       try {
